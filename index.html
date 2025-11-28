@@ -3,366 +3,389 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>即時在地天氣助手 (強固版)</title>
-    <!-- Tailwind CSS -->
+    <title>智慧穿搭氣象站</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
     
     <style>
         body {
             font-family: 'Noto Sans TC', sans-serif;
-            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); /* Darker theme for v2 */
+            background: linear-gradient(135deg, #0f172a 0%, #334155 100%);
             min-height: 100vh;
             color: white;
+            padding-bottom: 20px;
         }
         
         .glass-panel {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
             border: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-        }
-
-        .forecast-card {
-            background: rgba(255, 255, 255, 0.05);
-            transition: transform 0.2s, background 0.2s;
-            border: 1px solid rgba(255, 255, 255, 0.05);
-        }
-        
-        .forecast-card:hover {
-            transform: translateY(-2px);
-            background: rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
         }
 
         .loader {
-            border: 3px solid rgba(255,255,255,0.3);
+            border: 3px solid rgba(255,255,255,0.1);
             border-top: 3px solid #38bdf8;
             border-radius: 50%;
             width: 20px;
             height: 20px;
-            animation: spin 1s linear infinite;
-            display: inline-block;
+            animation: spin 0.8s linear infinite;
         }
+        @keyframes spin { to { transform: rotate(360deg); } }
 
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .hidden-el {
-            display: none;
-            opacity: 0;
-        }
-
-        .fade-in {
-            animation: fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
-
+        .hidden-el { display: none; opacity: 0; }
+        .fade-in { animation: fadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
         }
+
+        .tag {
+            display: inline-flex;
+            align-items: center;
+            padding: 6px 12px;
+            border-radius: 999px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            margin-right: 6px;
+            margin-bottom: 6px;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.1);
+            transition: all 0.3s;
+        }
+        .tag:hover { background: rgba(255,255,255,0.2); transform: scale(1.05); }
+        .tag i { margin-right: 6px; }
     </style>
 </head>
 <body class="flex items-center justify-center p-4">
 
-    <div class="glass-panel w-full max-w-md rounded-3xl p-6 md:p-8 text-white relative overflow-hidden">
+    <div class="glass-panel w-full max-w-md rounded-[2rem] p-6 text-white relative overflow-hidden shadow-2xl">
         
-        <!-- Decoration Circle -->
-        <div class="absolute -top-10 -right-10 w-32 h-32 bg-blue-500 rounded-full blur-[60px] opacity-40 pointer-events-none"></div>
-
-        <!-- Header -->
-        <div class="text-center mb-6 relative z-10">
-            <h1 class="text-2xl font-bold mb-2 flex items-center justify-center gap-2">
-                <i class="fa-solid fa-location-arrow text-blue-400"></i>
-                <span id="locationName">在地氣象站</span>
+        <!-- Header & Date -->
+        <div class="text-center mb-6 z-10 relative">
+            <h1 class="text-xl font-bold flex items-center justify-center gap-2">
+                <span id="locationName">在地氣象顧問</span>
             </h1>
-            <p class="text-xs text-slate-300">自動偵測位置或使用 IP 網路定位</p>
+            <!-- Date Display -->
+            <div id="dateDisplay" class="text-indigo-200 text-sm mt-1 font-medium tracking-wide">
+                <!-- JS will inject date here -->
+            </div>
         </div>
 
-        <!-- Action Area -->
-        <div class="flex flex-col items-center gap-4 mb-6 relative z-10">
-            <button id="getLocationBtn" onclick="startLocationProcess()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-6 rounded-xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 border border-blue-400/30">
-                <span id="btnText">開始查詢天氣</span>
+        <!-- Button -->
+        <div class="flex flex-col items-center gap-3 mb-6 relative z-10">
+            <button id="getLocationBtn" onclick="startProcess()" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold py-3.5 px-6 rounded-2xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 border border-white/10">
+                <span id="btnText">分析今日天氣 & 穿搭</span>
                 <span id="btnLoader" class="loader hidden-el"></span>
             </button>
-            <p id="statusMsg" class="text-xs text-blue-200 min-h-[1.5rem] text-center px-2"></p>
+            <p id="statusMsg" class="text-xs text-blue-200 min-h-[1.5rem]"></p>
         </div>
 
-        <!-- Weather Content -->
-        <div id="weatherResult" class="hidden-el flex flex-col gap-6 relative z-10">
+        <!-- Result Container -->
+        <div id="weatherResult" class="hidden-el flex flex-col gap-5 relative z-10">
             
-            <!-- Main Card -->
-            <div class="flex items-center justify-between bg-white/10 rounded-2xl p-5 border border-white/10">
-                <div>
-                    <div class="text-5xl font-bold tracking-tighter" id="currentTemp">--°</div>
-                    <div class="text-lg font-medium text-blue-300 mt-1" id="weatherDesc">--</div>
-                    <div class="text-xs text-slate-400 mt-2">體感 <span id="apparentTemp">--</span>°</div>
+            <!-- 1. Main Weather Card -->
+            <div class="flex items-center justify-between bg-white/5 rounded-2xl p-5 border border-white/10 relative overflow-hidden group">
+                <div class="absolute inset-0 bg-blue-500/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                <div class="relative z-10">
+                    <div class="text-5xl font-bold tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-white to-blue-200" id="currentTemp">--°</div>
+                    <div class="text-sm font-medium text-blue-300 mt-1 flex items-center gap-2">
+                        <span id="weatherDesc">--</span>
+                        <span class="text-xs text-slate-400">| 體感 <span id="apparentTemp">--</span>°</span>
+                    </div>
                 </div>
-                <div class="text-center">
-                    <i id="weatherIcon" class="fa-solid fa-cloud text-6xl text-white/90 drop-shadow-lg"></i>
+                <div class="text-center relative z-10">
+                    <i id="weatherIcon" class="fa-solid fa-cloud text-5xl text-blue-100 drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]"></i>
                 </div>
             </div>
 
-            <!-- Stats Grid -->
-            <div class="grid grid-cols-2 gap-3">
-                <div class="bg-white/5 rounded-xl p-3 flex flex-col items-center justify-center border border-white/5">
-                    <div class="text-slate-400 text-[10px] uppercase tracking-wider mb-1">濕度</div>
-                    <div class="font-bold text-lg flex items-center">
-                        <i class="fa-solid fa-droplet text-blue-400 mr-2 text-xs"></i>
-                        <span id="humidity">--</span>%
-                    </div>
+            <!-- 2. Smart Outfit Advice -->
+            <div class="bg-gradient-to-br from-indigo-500/20 to-purple-500/20 rounded-2xl p-5 border border-white/10">
+                <h3 class="text-xs font-bold text-indigo-200 uppercase tracking-wider mb-3 flex items-center">
+                    <i class="fa-solid fa-shirt mr-2"></i> 出門穿搭建議
+                </h3>
+                <div id="outfitTags" class="flex flex-wrap">
+                    <!-- Tags injected via JS -->
                 </div>
-
-                <div class="bg-white/5 rounded-xl p-3 flex flex-col items-center justify-center border border-white/5">
-                    <div class="text-slate-400 text-[10px] uppercase tracking-wider mb-1">降雨機率</div>
-                    <div class="font-bold text-lg flex items-center">
-                        <i class="fa-solid fa-umbrella text-blue-400 mr-2 text-xs"></i>
-                        <span id="rainProb">--</span>%
-                    </div>
-                </div>
-                
-                <div class="bg-white/5 rounded-xl p-3 col-span-2 flex items-center justify-between px-5 border border-white/5">
-                    <div class="flex items-center gap-3">
-                        <div id="aqiIconBox" class="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center">
-                            <i class="fa-solid fa-leaf text-green-400 text-sm"></i>
-                        </div>
-                        <div>
-                            <div class="text-slate-400 text-[10px] uppercase tracking-wider">空氣品質 AQI</div>
-                            <div class="font-bold text-sm text-green-300" id="aqiStatus">--</div>
-                        </div>
-                    </div>
-                    <div class="text-2xl font-bold" id="aqiValue">--</div>
+                <div id="outfitSummary" class="text-sm text-slate-200 mt-3 leading-relaxed font-light border-t border-white/10 pt-3">
+                    <!-- Summary text -->
                 </div>
             </div>
 
-            <!-- Forecast -->
+            <!-- 3. Stats Grid -->
+            <div class="grid grid-cols-3 gap-2">
+                <!-- Rain -->
+                <div class="bg-white/5 rounded-xl p-2 py-3 flex flex-col items-center justify-center border border-white/5">
+                    <i class="fa-solid fa-umbrella text-blue-400 mb-1 text-sm"></i>
+                    <div class="text-xs text-slate-400">降雨率</div>
+                    <div class="font-bold text-sm"><span id="rainProb">--</span>%</div>
+                </div>
+                <!-- Wind -->
+                <div class="bg-white/5 rounded-xl p-2 py-3 flex flex-col items-center justify-center border border-white/5">
+                    <i class="fa-solid fa-wind text-gray-400 mb-1 text-sm"></i>
+                    <div class="text-xs text-slate-400">風速</div>
+                    <div class="font-bold text-sm"><span id="windSpeed">--</span> <span class="text-[10px]">km/h</span></div>
+                </div>
+                <!-- AQI -->
+                <div class="bg-white/5 rounded-xl p-2 py-3 flex flex-col items-center justify-center border border-white/5">
+                    <i class="fa-solid fa-lungs text-green-400 mb-1 text-sm"></i>
+                    <div class="text-xs text-slate-400">空氣</div>
+                    <div class="font-bold text-sm" id="aqiText">--</div>
+                </div>
+            </div>
+
+            <!-- 4. Forecast Strip -->
             <div>
-                <h3 class="text-xs font-bold text-slate-400 mb-3 uppercase tracking-wider">未來 8 小時預報</h3>
                 <div class="overflow-x-auto pb-2 scrollbar-hide">
-                    <div class="flex gap-3" id="forecastContainer">
-                        <!-- JS Injected -->
-                    </div>
+                    <div class="flex gap-2" id="forecastContainer"></div>
                 </div>
             </div>
+
         </div>
 
-        <div class="mt-6 text-center text-[10px] text-slate-500">
-            Open-Meteo API • <span id="sourceMethod">GPS</span>
+        <div class="mt-4 text-center text-[10px] text-slate-600">
+            Powered by Open-Meteo & AI Outfit Logic
         </div>
     </div>
 
     <script>
-        // UI Elements
-        const btn = document.getElementById('getLocationBtn');
-        const btnText = document.getElementById('btnText');
-        const btnLoader = document.getElementById('btnLoader');
-        const statusMsg = document.getElementById('statusMsg');
-        const weatherResult = document.getElementById('weatherResult');
-        const sourceMethod = document.getElementById('sourceMethod');
-        const locationName = document.getElementById('locationName');
+        // --- 0. Initialize Date ---
+        (function initDate() {
+            const now = new Date();
+            const dateStr = now.toLocaleDateString('zh-TW', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                weekday: 'long'
+            });
+            document.getElementById('dateDisplay').textContent = dateStr;
+        })();
 
-        // Weather Codes
-        const weatherCodeMap = {
-            0: { desc: "晴朗", icon: "fa-sun", color: "text-yellow-400" },
-            1: { desc: "多雲時晴", icon: "fa-cloud-sun", color: "text-yellow-300" },
-            2: { desc: "多雲", icon: "fa-cloud", color: "text-slate-300" },
-            3: { desc: "陰天", icon: "fa-cloud", color: "text-slate-400" },
-            45: { desc: "霧", icon: "fa-smog", color: "text-slate-400" },
-            51: { desc: "毛毛雨", icon: "fa-cloud-rain", color: "text-blue-300" },
-            53: { desc: "毛毛雨", icon: "fa-cloud-rain", color: "text-blue-300" },
-            55: { desc: "毛毛雨", icon: "fa-cloud-showers-heavy", color: "text-blue-400" },
-            61: { desc: "小雨", icon: "fa-cloud-rain", color: "text-blue-400" },
-            63: { desc: "中雨", icon: "fa-cloud-rain", color: "text-blue-500" },
-            65: { desc: "大雨", icon: "fa-cloud-showers-heavy", color: "text-blue-600" },
-            80: { desc: "陣雨", icon: "fa-cloud-sun-rain", color: "text-blue-400" },
-            95: { desc: "雷雨", icon: "fa-bolt", color: "text-yellow-500" },
+        // --- 1. Audio Logic ---
+        function playChime() {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const now = ctx.currentTime;
+            [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.value = freq;
+                gain.gain.setValueAtTime(0, now + i*0.1);
+                gain.gain.linearRampToValueAtTime(0.05, now + i*0.1 + 0.1);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + i*0.1 + 1.2);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start(now + i*0.1);
+                osc.stop(now + i*0.1 + 1.5);
+            });
+        }
+
+        // --- 2. Outfit Logic ---
+        function generateOutfitAdvice(temp, apparentTemp, rainProb, windSpeed, aqi, weatherCode) {
+            let tags = [];
+            let summary = "";
+
+            if (apparentTemp >= 30) {
+                tags.push({text: "短袖/無袖", icon: "fa-shirt", color: "text-orange-300"});
+                tags.push({text: "透氣材質", icon: "fa-wind", color: "text-blue-200"});
+                summary = "天氣非常炎熱，請穿著輕薄透氣的衣物，避免中暑。";
+            } else if (apparentTemp >= 25) {
+                tags.push({text: "短袖", icon: "fa-shirt", color: "text-yellow-200"});
+                tags.push({text: "薄防曬", icon: "fa-sun", color: "text-orange-200"});
+                summary = "天氣溫暖舒適，短袖搭配一件薄襯衫或薄外套即可。";
+            } else if (apparentTemp >= 20) {
+                tags.push({text: "薄長袖/七分袖", icon: "fa-user-tag", color: "text-green-200"});
+                tags.push({text: "薄外套", icon: "fa-layer-group", color: "text-green-200"});
+                summary = "體感舒適微涼，建議穿著薄長袖，或短袖外搭一件薄夾克。";
+            } else if (apparentTemp >= 15) {
+                tags.push({text: "夾克/帽T", icon: "fa-vest", color: "text-blue-200"});
+                tags.push({text: "長褲", icon: "fa-socks", color: "text-blue-200"});
+                summary = "稍有涼意，建議穿著大學T、帽T或夾克，避免著涼。";
+            } else {
+                tags.push({text: "厚外套/羽絨", icon: "fa-snowflake", color: "text-blue-100"});
+                tags.push({text: "圍巾", icon: "fa-scarf", color: "text-purple-200"});
+                tags.push({text: "洋蔥式穿搭", icon: "fa-layer-group", color: "text-white"});
+                summary = "天氣寒冷，請務必做好保暖，建議穿著保暖外套與圍巾。";
+            }
+
+            if (rainProb >= 40 || (weatherCode >= 50 && weatherCode <= 99)) {
+                tags.push({text: "務必帶傘", icon: "fa-umbrella", color: "text-blue-400", important: true});
+                summary += " 降雨機率高，出門請記得攜帶雨具或穿防水鞋。";
+            } else if (rainProb >= 20) {
+                tags.push({text: "摺疊傘備用", icon: "fa-umbrella", color: "text-slate-300"});
+            }
+
+            if (windSpeed >= 20) {
+                tags.push({text: "防風外套", icon: "fa-wind", color: "text-gray-300"});
+                if(!summary.includes("寒冷")) summary += " 風大請注意保暖。";
+            }
+
+            if (aqi > 100) {
+                tags.push({text: "戴口罩", icon: "fa-mask-face", color: "text-red-400", important: true});
+                summary += " 空氣品質不佳，敏感族群請配戴口罩。";
+            }
+
+            if (weatherCode <= 1 && apparentTemp > 20) {
+                tags.push({text: "墨鏡/帽子", icon: "fa-glasses", color: "text-yellow-400"});
+            }
+
+            return { tags, summary };
+        }
+
+
+        // --- 3. App Logic ---
+        const ui = {
+            btn: document.getElementById('getLocationBtn'),
+            btnText: document.getElementById('btnText'),
+            loader: document.getElementById('btnLoader'),
+            msg: document.getElementById('statusMsg'),
+            result: document.getElementById('weatherResult'),
+            locName: document.getElementById('locationName'),
+            temp: document.getElementById('currentTemp'),
+            apparent: document.getElementById('apparentTemp'),
+            desc: document.getElementById('weatherDesc'),
+            icon: document.getElementById('weatherIcon'),
+            rain: document.getElementById('rainProb'),
+            wind: document.getElementById('windSpeed'),
+            aqi: document.getElementById('aqiText'),
+            tags: document.getElementById('outfitTags'),
+            summary: document.getElementById('outfitSummary'),
+            forecast: document.getElementById('forecastContainer')
         };
 
-        function playSuccessSound() {
-            try {
-                const AudioContext = window.AudioContext || window.webkitAudioContext;
-                if (!AudioContext) return;
-                const ctx = new AudioContext();
-                
-                // Beautiful chime chord
-                [523.25, 659.25, 783.99].forEach((freq, i) => { // C Major
-                    const osc = ctx.createOscillator();
-                    const gain = ctx.createGain();
-                    osc.type = 'sine';
-                    osc.frequency.value = freq;
-                    
-                    gain.gain.setValueAtTime(0, ctx.currentTime);
-                    gain.gain.linearRampToValueAtTime(0.05, ctx.currentTime + 0.1 + (i*0.05));
-                    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.5);
-                    
-                    osc.connect(gain);
-                    gain.connect(ctx.destination);
-                    osc.start(ctx.currentTime + (i*0.05));
-                    osc.stop(ctx.currentTime + 2);
-                });
-            } catch (e) { console.error(e); }
-        }
+        const weatherCodes = {
+            0: {d:"晴朗", i:"fa-sun"}, 1: {d:"多雲時晴", i:"fa-cloud-sun"}, 2: {d:"多雲", i:"fa-cloud"}, 
+            3: {d:"陰天", i:"fa-cloud"}, 45: {d:"霧", i:"fa-smog"}, 
+            51: {d:"細雨", i:"fa-cloud-rain"}, 61: {d:"小雨", i:"fa-cloud-rain"}, 63: {d:"中雨", i:"fa-cloud-rain"}, 
+            65: {d:"大雨", i:"fa-cloud-showers-heavy"}, 80: {d:"陣雨", i:"fa-cloud-sun-rain"}, 95: {d:"雷雨", i:"fa-bolt"}
+        };
 
-        function setLoading(loading, msg) {
+        function setState(loading, msg) {
+            ui.btn.disabled = loading;
+            ui.btnText.textContent = loading ? "分析數據中..." : "重新分析";
+            ui.loader.style.display = loading ? "inline-block" : "none";
+            ui.msg.textContent = msg;
             if (loading) {
-                btn.disabled = true;
-                btnText.textContent = "處理中...";
-                btnLoader.style.display = "inline-block";
-                statusMsg.textContent = msg;
-                weatherResult.style.display = 'none';
-                weatherResult.classList.remove('fade-in');
-            } else {
-                btn.disabled = false;
-                btnText.textContent = "重新整理";
-                btnLoader.style.display = "none";
-                statusMsg.textContent = msg;
+                ui.result.style.display = 'none';
+                ui.result.classList.remove('fade-in');
             }
         }
 
-        async function startLocationProcess() {
-            setLoading(true, "嘗試獲取精準位置...");
-
+        async function startProcess() {
+            setState(true, "正在定位並獲取氣象數據...");
             if (!navigator.geolocation) {
-                fallbackToIpLocation("瀏覽器不支援 GPS，切換至 IP 定位...");
+                useIpFallback("瀏覽器不支援 GPS，使用 IP 定位");
                 return;
             }
-
             navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    const { latitude, longitude } = position.coords;
-                    fetchWeatherData(latitude, longitude, "GPS 精準定位");
+                pos => fetchData(pos.coords.latitude, pos.coords.longitude),
+                err => {
+                    console.warn(err);
+                    useIpFallback("GPS 權限受阻，切換至 IP 網路定位");
                 },
-                (error) => {
-                    console.warn("GPS Error:", error);
-                    fallbackToIpLocation("無法存取 GPS (權限受限)，切換至 IP 網路定位...");
-                },
-                { timeout: 5000 }
+                { timeout: 4000 }
             );
         }
 
-        async function fallbackToIpLocation(msg) {
-            statusMsg.textContent = msg;
+        async function useIpFallback(msg) {
+            ui.msg.textContent = msg;
             try {
-                // Using ipapi.co for IP geolocation (free tier, works well for fallback)
-                const res = await fetch('https://ipapi.co/json/');
-                if (!res.ok) throw new Error("IP Geolocation failed");
-                const data = await res.json();
-                
-                // Update Location Name if available
-                if(data.city) {
-                    locationName.innerHTML = `<i class="fa-solid fa-location-dot text-red-400"></i> ${data.city}`;
-                }
-
-                fetchWeatherData(data.latitude, data.longitude, "IP 網路定位 (約略)");
-            } catch (err) {
-                console.error(err);
-                setLoading(false, "定位完全失敗，請檢查網路連線。");
+                const r = await fetch('https://ipapi.co/json/');
+                if(!r.ok) throw new Error();
+                const d = await r.json();
+                if(d.city) ui.locName.innerHTML = `<i class="fa-solid fa-location-dot text-blue-400"></i> ${d.city} <span class="text-xs text-slate-400">氣象顧問</span>`;
+                fetchData(d.latitude, d.longitude);
+            } catch(e) {
+                setState(false, "定位失敗，請檢查網路連線。");
             }
         }
 
-        async function fetchWeatherData(lat, lon, source) {
-            statusMsg.textContent = "正在下載氣象資料...";
-            sourceMethod.textContent = source;
-
+        async function fetchData(lat, lon) {
             try {
-                const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation_probability,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,precipitation_probability&timezone=auto`;
-                const aqiUrl = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=us_aqi`;
-
                 const [wRes, aRes] = await Promise.all([
-                    fetch(weatherUrl),
-                    fetch(aqiUrl)
+                    fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation_probability,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code&timezone=auto`),
+                    fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=us_aqi`)
                 ]);
-
+                
                 const wData = await wRes.json();
                 const aData = await aRes.json();
-
-                renderUI(wData, aData);
-                playSuccessSound();
-                setLoading(false, `更新完成: ${new Date().toLocaleTimeString()}`);
-
-            } catch (err) {
-                console.error(err);
-                setLoading(false, "氣象資料下載失敗，請稍後再試。");
+                render(wData, aData);
+                playChime();
+                setState(false, "分析完成");
+            } catch(e) {
+                console.error(e);
+                setState(false, "資料下載失敗，請稍後重試");
             }
         }
 
-        function renderUI(wData, aData) {
-            const cur = wData.current;
+        function render(w, a) {
+            const cur = w.current;
+            const aqiVal = a.current.us_aqi;
             
-            // Current
-            document.getElementById('currentTemp').textContent = `${Math.round(cur.temperature_2m)}°`;
-            document.getElementById('apparentTemp').textContent = Math.round(cur.apparent_temperature);
-            document.getElementById('humidity').textContent = cur.relative_humidity_2m;
-            document.getElementById('rainProb').textContent = cur.precipitation_probability ?? 0;
-
-            // Weather Code
-            const wInfo = weatherCodeMap[cur.weather_code] || { desc: "未知", icon: "fa-question", color: "text-slate-400" };
-            document.getElementById('weatherDesc').textContent = wInfo.desc;
-            document.getElementById('weatherIcon').className = `fa-solid ${wInfo.icon} text-6xl drop-shadow-lg ${wInfo.color}`;
+            // Basic Info
+            ui.temp.textContent = Math.round(cur.temperature_2m) + "°";
+            ui.apparent.textContent = Math.round(cur.apparent_temperature);
+            ui.rain.textContent = cur.precipitation_probability ?? 0;
+            ui.wind.textContent = cur.wind_speed_10m;
+            
+            // Weather Icon
+            const code = cur.weather_code;
+            const info = weatherCodes[code] || {d:"未知", i:"fa-question"};
+            ui.desc.textContent = info.d;
+            ui.icon.className = `fa-solid ${info.i} text-5xl text-blue-100 drop-shadow-lg`;
 
             // AQI
-            const aqi = aData.current.us_aqi;
-            const aqiEl = document.getElementById('aqiValue');
-            const aqiStatus = document.getElementById('aqiStatus');
-            const aqiBox = document.getElementById('aqiIconBox');
-            
-            aqiEl.textContent = aqi;
-            
-            let colorClass = "text-green-400";
-            let statusText = "良好";
-            let bgClass = "bg-green-500/20";
-            
-            if (aqi > 50) { statusText = "普通"; colorClass = "text-yellow-400"; bgClass = "bg-yellow-500/20"; }
-            if (aqi > 100) { statusText = "不健康"; colorClass = "text-orange-400"; bgClass = "bg-orange-500/20"; }
-            if (aqi > 150) { statusText = "危險"; colorClass = "text-red-400"; bgClass = "bg-red-500/20"; }
+            let aqiStatus = "良好";
+            if(aqiVal > 50) aqiStatus = "普通";
+            if(aqiVal > 100) aqiStatus = "不佳";
+            ui.aqi.textContent = `${aqiVal} (${aqiStatus})`;
+            ui.aqi.className = `font-bold text-sm ${aqiVal > 100 ? 'text-red-400' : 'text-green-400'}`;
 
-            aqiStatus.textContent = statusText;
-            aqiStatus.className = `font-bold text-sm ${colorClass}`;
-            aqiBox.className = `w-8 h-8 rounded-full flex items-center justify-center ${bgClass}`;
-            aqiBox.innerHTML = `<i class="fa-solid fa-leaf ${colorClass} text-sm"></i>`;
+            // Outfit Advice
+            const advice = generateOutfitAdvice(
+                cur.temperature_2m,
+                cur.apparent_temperature,
+                cur.precipitation_probability,
+                cur.wind_speed_10m,
+                aqiVal,
+                code
+            );
 
-            // Hourly Forecast
-            const container = document.getElementById('forecastContainer');
-            container.innerHTML = '';
+            ui.tags.innerHTML = advice.tags.map(t => 
+                `<span class="tag ${t.important ? 'bg-blue-500/40 border-blue-400' : ''} ${t.color}">
+                    <i class="fa-solid ${t.icon}"></i>${t.text}
+                 </span>`
+            ).join('');
+            ui.summary.textContent = advice.summary;
 
-            // Find current hour index
-            const now = new Date();
+            // Forecast Strip
+            ui.forecast.innerHTML = '';
+            const nowHour = new Date().getHours();
             let startIdx = 0;
-            const currentHour = now.getHours();
+            w.hourly.time.forEach((t, i) => {
+                if(new Date(t).getHours() === nowHour) startIdx = i;
+            });
             
-            for(let i=0; i<wData.hourly.time.length; i++) {
-                if (new Date(wData.hourly.time[i]).getHours() === currentHour) {
-                    startIdx = i;
-                    break;
-                }
-            }
-
             for(let i=startIdx+1; i<=startIdx+8; i++) {
-                if(i >= wData.hourly.time.length) break;
+                if(!w.hourly.time[i]) break;
+                const t = new Date(w.hourly.time[i]);
+                const hCode = w.hourly.weather_code[i];
+                const hInfo = weatherCodes[hCode] || {i:"fa-question"};
                 
-                const hTime = new Date(wData.hourly.time[i]);
-                const hTemp = Math.round(wData.hourly.temperature_2m[i]);
-                const hCode = wData.hourly.weather_code[i];
-                const hInfo = weatherCodeMap[hCode] || { icon: "fa-question", color: "text-slate-500" };
-                
-                const html = `
-                    <div class="forecast-card flex-shrink-0 w-16 rounded-lg p-2 flex flex-col items-center justify-between">
-                        <span class="text-[10px] text-slate-400">${hTime.getHours()}:00</span>
-                        <i class="fa-solid ${hInfo.icon} ${hInfo.color} text-lg my-2"></i>
-                        <span class="text-sm font-bold">${hTemp}°</span>
+                ui.forecast.innerHTML += `
+                    <div class="flex-shrink-0 w-14 flex flex-col items-center bg-white/5 rounded-lg p-2">
+                        <span class="text-[10px] text-slate-400">${t.getHours()}:00</span>
+                        <i class="fa-solid ${hInfo.i} my-1 text-sm"></i>
+                        <span class="text-xs font-bold">${Math.round(w.hourly.temperature_2m[i])}°</span>
                     </div>
                 `;
-                container.insertAdjacentHTML('beforeend', html);
             }
 
-            weatherResult.style.display = 'flex';
-            void weatherResult.offsetWidth;
-            weatherResult.classList.add('fade-in');
+            ui.result.style.display = 'flex';
+            void ui.result.offsetWidth;
+            ui.result.classList.add('fade-in');
         }
     </script>
 </body>
