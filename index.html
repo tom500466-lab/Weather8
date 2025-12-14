@@ -1,22 +1,33 @@
 <!DOCTYPE html>
-<html lang="zh-Hant-TW">
+<html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>智慧穿搭氣象站</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <title>智慧穿搭氣象站 (含地震/雪訊)</title>
     
+    <!-- 引入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- 引入 FontAwesome 圖示庫 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- 引入 Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+
     <style>
         body {
             font-family: 'Noto Sans TC', sans-serif;
-            background: linear-gradient(135deg, #0f172a 0%, #334155 100%);
+            background: linear-gradient(135deg, #0f172a 0%, #334155 100%); /* 深色背景 */
             min-height: 100vh;
             color: white;
-            padding-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            -webkit-tap-highlight-color: transparent;
         }
         
+        /* 玻璃擬態面板 */
         .glass-panel {
             background: rgba(255, 255, 255, 0.08);
             backdrop-filter: blur(16px);
@@ -25,23 +36,27 @@
             box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
         }
 
+        /* 載入動畫 */
         .loader {
             border: 3px solid rgba(255,255,255,0.1);
             border-top: 3px solid #38bdf8;
             border-radius: 50%;
-            width: 20px;
-            height: 20px;
+            width: 24px;
+            height: 24px;
             animation: spin 0.8s linear infinite;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
 
         .hidden-el { display: none; opacity: 0; }
-        .fade-in { animation: fadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        
+        /* 進場動畫 */
+        .fade-in { animation: fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
         }
 
+        /* 標籤樣式 */
         .tag {
             display: inline-flex;
             align-items: center;
@@ -57,51 +72,125 @@
         }
         .tag:hover { background: rgba(255,255,255,0.2); transform: scale(1.05); }
         .tag i { margin-right: 6px; }
+
+        /* 隱藏捲軸但保留功能 */
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        .scale-click:active { transform: scale(0.95); }
+
+        /* 額外資訊卡片樣式 */
+        .info-card {
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 0.75rem;
+            padding: 12px;
+            transition: all 0.3s;
+        }
+        .info-card:hover {
+            background: rgba(0, 0, 0, 0.3);
+            border-color: rgba(255, 255, 255, 0.1);
+        }
+
+        /* 雪訊特別樣式 */
+        .snow-card {
+            background: linear-gradient(135deg, rgba(6, 182, 212, 0.15) 0%, rgba(59, 130, 246, 0.15) 100%);
+            border: 1px solid rgba(165, 243, 252, 0.3);
+            box-shadow: 0 0 15px rgba(6, 182, 212, 0.1);
+        }
+        .snow-card:hover {
+            background: linear-gradient(135deg, rgba(6, 182, 212, 0.25) 0%, rgba(59, 130, 246, 0.25) 100%);
+        }
+
+        /* 未來預報特別樣式 */
+        .forecast-card {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* 浮動動畫 (給圖示用) */
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-5px); }
+            100% { transform: translateY(0px); }
+        }
+        .animate-float {
+            animation: float 3s ease-in-out infinite;
+        }
+        /* 給每個圖示一點延遲，讓畫面不要太整齊 */
+        .delay-100 { animation-delay: 0.1s; }
+        .delay-200 { animation-delay: 0.2s; }
+        .delay-300 { animation-delay: 0.3s; }
+
+        /* 數字字體優化 */
+        .num-font {
+            font-variant-numeric: tabular-nums;
+            letter-spacing: -0.02em;
+        }
     </style>
 </head>
-<body class="flex items-center justify-center p-4">
+<body>
 
-    <div class="glass-panel w-full max-w-md rounded-[2rem] p-6 text-white relative overflow-hidden shadow-2xl">
+    <div class="glass-panel w-full max-w-md rounded-[2rem] p-6 text-white relative overflow-hidden shadow-2xl my-4">
         
         <!-- Header & Date -->
         <div class="text-center mb-6 z-10 relative">
             <h1 class="text-xl font-bold flex items-center justify-center gap-2">
                 <span id="locationName">在地氣象顧問</span>
             </h1>
-            <!-- Date Display -->
             <div id="dateDisplay" class="text-indigo-200 text-sm mt-1 font-medium tracking-wide">
-                <!-- JS will inject date here -->
+                <!-- JS will inject date -->
             </div>
         </div>
 
-        <!-- Button -->
-        <div class="flex flex-col items-center gap-3 mb-6 relative z-10">
-            <button id="getLocationBtn" onclick="startProcess()" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold py-3.5 px-6 rounded-2xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 border border-white/10">
-                <span id="btnText">分析今日天氣 & 穿搭</span>
-                <span id="btnLoader" class="loader hidden-el"></span>
+        <!-- Input & Controls -->
+        <div class="flex flex-col gap-3 mb-6 relative z-10">
+            <!-- 手動輸入框 -->
+            <input type="text" id="manualCityInput" placeholder="請輸入城市名稱 (例如: Taipei, Tokyo)" 
+                class="w-full bg-slate-900/60 border border-white/30 rounded-xl px-4 py-4 text-white placeholder-slate-400 focus:outline-none focus:border-blue-400 focus:bg-slate-900/80 transition-all backdrop-blur-md shadow-inner text-base tracking-wide"
+                onkeypress="if(event.key === 'Enter') manualSearch()"
+                style="text-shadow: 0 1px 2px rgba(0,0,0,0.5);" 
+            >
+            
+            <!-- 搜尋按鈕 -->
+            <button onclick="manualSearch()" 
+                class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold py-3.5 rounded-xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 border border-white/10 scale-click">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <span>搜尋天氣</span>
             </button>
-            <p id="statusMsg" class="text-xs text-blue-200 min-h-[1.5rem]"></p>
+            
+            <!-- GPS 定位按鈕 -->
+            <button onclick="startWeatherProcess()" 
+                class="mt-1 text-xs text-blue-300 hover:text-white flex items-center justify-center gap-2 py-2 hover:bg-white/10 rounded-lg transition-colors border border-dashed border-blue-300/30 scale-click">
+                <i class="fa-solid fa-location-crosshairs"></i>
+                定位目前位置 (GPS)
+            </button>
+
+            <!-- 狀態訊息 -->
+            <p id="statusMsg" class="text-xs text-blue-200 min-h-[1.5rem] text-center"></p>
+            <div id="btnLoader" class="loader hidden-el mx-auto"></div>
         </div>
 
-        <!-- Result Container -->
+        <!-- Weather Result Container -->
         <div id="weatherResult" class="hidden-el flex flex-col gap-5 relative z-10">
             
-            <!-- 1. Main Weather Card -->
+            <!-- 1. 主氣象卡片 -->
             <div class="flex items-center justify-between bg-white/5 rounded-2xl p-5 border border-white/10 relative overflow-hidden group">
                 <div class="absolute inset-0 bg-blue-500/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                 <div class="relative z-10">
-                    <div class="text-5xl font-bold tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-white to-blue-200" id="currentTemp">--°</div>
+                    <!-- 加入 num-font 優化數字顯示 -->
+                    <div class="text-5xl font-bold tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-white to-blue-200 num-font" id="currentTemp">--°</div>
                     <div class="text-sm font-medium text-blue-300 mt-1 flex items-center gap-2">
                         <span id="weatherDesc">--</span>
-                        <span class="text-xs text-slate-400">| 體感 <span id="apparentTemp">--</span>°</span>
+                        <span class="text-xs text-slate-400">| 體感 <span class="num-font" id="apparentTemp">--</span>°</span>
                     </div>
                 </div>
                 <div class="text-center relative z-10">
-                    <i id="weatherIcon" class="fa-solid fa-cloud text-5xl text-blue-100 drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]"></i>
+                    <i id="weatherIcon" class="fa-solid fa-cloud text-5xl text-blue-100 drop-shadow-[0_0_15px_rgba(255,255,255,0.3)] animate-float"></i>
                 </div>
             </div>
 
-            <!-- 2. Smart Outfit Advice -->
+            <!-- 2. AI 穿搭建議 -->
             <div class="bg-gradient-to-br from-indigo-500/20 to-purple-500/20 rounded-2xl p-5 border border-white/10">
                 <h3 class="text-xs font-bold text-indigo-200 uppercase tracking-wider mb-3 flex items-center">
                     <i class="fa-solid fa-shirt mr-2"></i> 出門穿搭建議
@@ -114,131 +203,77 @@
                 </div>
             </div>
 
-            <!-- 3. Stats Grid -->
+            <!-- 3. 詳細數據 (降雨、風速、空氣) -->
             <div class="grid grid-cols-3 gap-2">
                 <!-- Rain -->
                 <div class="bg-white/5 rounded-xl p-2 py-3 flex flex-col items-center justify-center border border-white/5">
                     <i class="fa-solid fa-umbrella text-blue-400 mb-1 text-sm"></i>
                     <div class="text-xs text-slate-400">降雨率</div>
-                    <div class="font-bold text-sm"><span id="rainProb">--</span>%</div>
+                    <div class="font-bold text-sm num-font"><span id="rainProb">--</span>%</div>
                 </div>
                 <!-- Wind -->
                 <div class="bg-white/5 rounded-xl p-2 py-3 flex flex-col items-center justify-center border border-white/5">
                     <i class="fa-solid fa-wind text-gray-400 mb-1 text-sm"></i>
                     <div class="text-xs text-slate-400">風速</div>
-                    <div class="font-bold text-sm"><span id="windSpeed">--</span> <span class="text-[10px]">km/h</span></div>
+                    <div class="font-bold text-sm num-font"><span id="windSpeed">--</span> <span class="text-[10px]">km/h</span></div>
                 </div>
                 <!-- AQI -->
                 <div class="bg-white/5 rounded-xl p-2 py-3 flex flex-col items-center justify-center border border-white/5">
                     <i class="fa-solid fa-lungs text-green-400 mb-1 text-sm"></i>
                     <div class="text-xs text-slate-400">空氣</div>
-                    <div class="font-bold text-sm" id="aqiText">--</div>
+                    <div class="font-bold text-sm num-font" id="aqiText">--</div>
+                </div>
+            </div>
+            
+            <!-- 4 & 5. 並列顯示：未來8小時預報 & 雪訊預報 -->
+            <div class="grid grid-cols-2 gap-3 h-48">
+                
+                <!-- 左側：未來 8 小時預報 -->
+                <div class="info-card forecast-card overflow-hidden flex flex-col h-full">
+                    <h4 class="text-[10px] text-slate-400 mb-2 uppercase tracking-wide font-bold flex items-center gap-1">
+                        <i class="fa-regular fa-clock"></i> 未來 8 小時
+                    </h4>
+                    <div class="overflow-y-auto scrollbar-hide flex-1 pr-1">
+                        <div class="flex flex-col gap-2" id="forecastContainer">
+                            <!-- Forecast items injected via JS -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 右側：雪訊預報 -->
+                <div id="snowSection" class="info-card snow-card hidden-el relative overflow-hidden flex flex-col h-full">
+                    <!-- 裝飾背景光 -->
+                    <div class="absolute -right-5 -top-5 w-20 h-20 bg-white/20 rounded-full blur-xl pointer-events-none"></div>
+                    
+                    <h4 class="text-[10px] font-bold text-cyan-200 mb-2 flex items-center gap-1 uppercase tracking-wide">
+                        <i class="fa-regular fa-snowflake animate-pulse"></i> 3日雪訊
+                    </h4>
+                    <div id="snowContent" class="text-xs font-medium pl-1 overflow-y-auto scrollbar-hide flex-1">
+                        <!-- Snow items injected via JS -->
+                    </div>
                 </div>
             </div>
 
-            <!-- 4. Forecast Strip -->
-            <div>
-                <div class="overflow-x-auto pb-2 scrollbar-hide">
-                    <div class="flex gap-2" id="forecastContainer"></div>
+            <!-- 6. 地震資訊 (獨立區塊，移至最下方) -->
+            <div id="quakeSection" class="info-card">
+                <h4 class="text-xs text-slate-400 mb-2 flex items-center gap-1">
+                    <i class="fa-solid fa-house-crack text-orange-400"></i> 近 3 天周邊地震 (半徑500km)
+                </h4>
+                <div id="quakeContent" class="space-y-2">
+                    <div class="text-xs text-slate-500 py-1">資料載入中...</div>
                 </div>
             </div>
 
         </div>
 
         <div class="mt-4 text-center text-[10px] text-slate-600">
-            Powered by Open-Meteo & AI Outfit Logic
+            Powered by Open-Meteo & USGS Earthquake Hazards Program
         </div>
     </div>
 
     <script>
-        // --- 0. Initialize Date ---
-        (function initDate() {
-            const now = new Date();
-            const dateStr = now.toLocaleDateString('zh-TW', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-                weekday: 'long'
-            });
-            document.getElementById('dateDisplay').textContent = dateStr;
-        })();
-
-        // --- 1. Audio Logic ---
-        function playChime() {
-            const ctx = new (window.AudioContext || window.webkitAudioContext)();
-            const now = ctx.currentTime;
-            [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
-                const osc = ctx.createOscillator();
-                const gain = ctx.createGain();
-                osc.type = 'sine';
-                osc.frequency.value = freq;
-                gain.gain.setValueAtTime(0, now + i*0.1);
-                gain.gain.linearRampToValueAtTime(0.05, now + i*0.1 + 0.1);
-                gain.gain.exponentialRampToValueAtTime(0.001, now + i*0.1 + 1.2);
-                osc.connect(gain);
-                gain.connect(ctx.destination);
-                osc.start(now + i*0.1);
-                osc.stop(now + i*0.1 + 1.5);
-            });
-        }
-
-        // --- 2. Outfit Logic ---
-        function generateOutfitAdvice(temp, apparentTemp, rainProb, windSpeed, aqi, weatherCode) {
-            let tags = [];
-            let summary = "";
-
-            if (apparentTemp >= 30) {
-                tags.push({text: "短袖/無袖", icon: "fa-shirt", color: "text-orange-300"});
-                tags.push({text: "透氣材質", icon: "fa-wind", color: "text-blue-200"});
-                summary = "天氣非常炎熱，請穿著輕薄透氣的衣物，避免中暑。";
-            } else if (apparentTemp >= 25) {
-                tags.push({text: "短袖", icon: "fa-shirt", color: "text-yellow-200"});
-                tags.push({text: "薄防曬", icon: "fa-sun", color: "text-orange-200"});
-                summary = "天氣溫暖舒適，短袖搭配一件薄襯衫或薄外套即可。";
-            } else if (apparentTemp >= 20) {
-                tags.push({text: "薄長袖/七分袖", icon: "fa-user-tag", color: "text-green-200"});
-                tags.push({text: "薄外套", icon: "fa-layer-group", color: "text-green-200"});
-                summary = "體感舒適微涼，建議穿著薄長袖，或短袖外搭一件薄夾克。";
-            } else if (apparentTemp >= 15) {
-                tags.push({text: "夾克/帽T", icon: "fa-vest", color: "text-blue-200"});
-                tags.push({text: "長褲", icon: "fa-socks", color: "text-blue-200"});
-                summary = "稍有涼意，建議穿著大學T、帽T或夾克，避免著涼。";
-            } else {
-                tags.push({text: "厚外套/羽絨", icon: "fa-snowflake", color: "text-blue-100"});
-                tags.push({text: "圍巾", icon: "fa-scarf", color: "text-purple-200"});
-                tags.push({text: "洋蔥式穿搭", icon: "fa-layer-group", color: "text-white"});
-                summary = "天氣寒冷，請務必做好保暖，建議穿著保暖外套與圍巾。";
-            }
-
-            if (rainProb >= 40 || (weatherCode >= 50 && weatherCode <= 99)) {
-                tags.push({text: "務必帶傘", icon: "fa-umbrella", color: "text-blue-400", important: true});
-                summary += " 降雨機率高，出門請記得攜帶雨具或穿防水鞋。";
-            } else if (rainProb >= 20) {
-                tags.push({text: "摺疊傘備用", icon: "fa-umbrella", color: "text-slate-300"});
-            }
-
-            if (windSpeed >= 20) {
-                tags.push({text: "防風外套", icon: "fa-wind", color: "text-gray-300"});
-                if(!summary.includes("寒冷")) summary += " 風大請注意保暖。";
-            }
-
-            if (aqi > 100) {
-                tags.push({text: "戴口罩", icon: "fa-mask-face", color: "text-red-400", important: true});
-                summary += " 空氣品質不佳，敏感族群請配戴口罩。";
-            }
-
-            if (weatherCode <= 1 && apparentTemp > 20) {
-                tags.push({text: "墨鏡/帽子", icon: "fa-glasses", color: "text-yellow-400"});
-            }
-
-            return { tags, summary };
-        }
-
-
-        // --- 3. App Logic ---
+        // --- 介面元件參考 ---
         const ui = {
-            btn: document.getElementById('getLocationBtn'),
-            btnText: document.getElementById('btnText'),
             loader: document.getElementById('btnLoader'),
             msg: document.getElementById('statusMsg'),
             result: document.getElementById('weatherResult'),
@@ -252,19 +287,38 @@
             aqi: document.getElementById('aqiText'),
             tags: document.getElementById('outfitTags'),
             summary: document.getElementById('outfitSummary'),
-            forecast: document.getElementById('forecastContainer')
+            forecast: document.getElementById('forecastContainer'),
+            dateDisplay: document.getElementById('dateDisplay'),
+            manualInput: document.getElementById('manualCityInput'),
+            snowSection: document.getElementById('snowSection'),
+            snowContent: document.getElementById('snowContent'),
+            quakeContent: document.getElementById('quakeContent')
         };
 
+        // --- 天氣代碼對照表 ---
         const weatherCodes = {
             0: {d:"晴朗", i:"fa-sun"}, 1: {d:"多雲時晴", i:"fa-cloud-sun"}, 2: {d:"多雲", i:"fa-cloud"}, 
             3: {d:"陰天", i:"fa-cloud"}, 45: {d:"霧", i:"fa-smog"}, 
             51: {d:"細雨", i:"fa-cloud-rain"}, 61: {d:"小雨", i:"fa-cloud-rain"}, 63: {d:"中雨", i:"fa-cloud-rain"}, 
-            65: {d:"大雨", i:"fa-cloud-showers-heavy"}, 80: {d:"陣雨", i:"fa-cloud-sun-rain"}, 95: {d:"雷雨", i:"fa-bolt"}
+            65: {d:"大雨", i:"fa-cloud-showers-heavy"}, 71: {d:"小雪", i:"fa-snowflake"}, 73: {d:"中雪", i:"fa-snowflake"}, 
+            75: {d:"大雪", i:"fa-snowflake"}, 80: {d:"陣雨", i:"fa-cloud-sun-rain"}, 95: {d:"雷雨", i:"fa-bolt"}
         };
 
-        function setState(loading, msg) {
-            ui.btn.disabled = loading;
-            ui.btnText.textContent = loading ? "分析數據中..." : "重新分析";
+        // --- 1. 基礎功能 ---
+        
+        // 初始化日期
+        (function initDate() {
+            const now = new Date();
+            ui.dateDisplay.textContent = now.toLocaleDateString('zh-TW', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                weekday: 'long'
+            });
+        })();
+
+        // 設定載入狀態
+        function setWeatherState(loading, msg) {
             ui.loader.style.display = loading ? "inline-block" : "none";
             ui.msg.textContent = msg;
             if (loading) {
@@ -273,84 +327,212 @@
             }
         }
 
-        async function startProcess() {
-            setState(true, "正在定位並獲取氣象數據...");
-            if (!navigator.geolocation) {
-                useIpFallback("瀏覽器不支援 GPS，使用 IP 定位");
+        // 播放提示音效
+        function playChime() {
+            try {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (!AudioContext) return;
+                
+                const ctx = new AudioContext();
+                const now = ctx.currentTime;
+                [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.value = freq;
+                    gain.gain.setValueAtTime(0, now + i*0.1);
+                    gain.gain.linearRampToValueAtTime(0.05, now + i*0.1 + 0.1);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + i*0.1 + 1.2);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(now + i*0.1);
+                    osc.stop(now + i*0.1 + 1.5);
+                });
+            } catch(e) { console.error("Audio error", e); }
+        }
+
+        // --- 2. 定位與搜尋邏輯 ---
+
+        // 手動搜尋
+        async function manualSearch() {
+            const city = ui.manualInput.value.trim();
+            if(!city) {
+                ui.msg.textContent = "請輸入城市名稱";
                 return;
             }
+            
+            setWeatherState(true, `正在搜尋 ${city} ...`);
+            
+            try {
+                // 使用 Nominatim 搜尋城市座標
+                const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(city)}&format=json&limit=1`);
+                const geoData = await geoRes.json();
+                
+                if(geoData && geoData.length > 0) {
+                    const lat = geoData[0].lat;
+                    const lon = geoData[0].lon;
+                    const name = city; 
+                    ui.locName.innerHTML = `<i class="fa-solid fa-location-dot text-blue-400"></i> ${name}`;
+                    fetchWeatherData(lat, lon);
+                } else {
+                    setWeatherState(false, "找不到該城市，請嘗試輸入英文名稱 (例如: Taipei)");
+                }
+            } catch(e) {
+                setWeatherState(false, "搜尋失敗，請檢查網路連線");
+            }
+        }
+
+        // GPS 定位
+        async function startWeatherProcess() {
+            setWeatherState(true, "正在使用 GPS 定位...");
+            
+            if (!navigator.geolocation) {
+                ui.msg.textContent = "您的瀏覽器不支援 GPS 定位";
+                return;
+            }
+
             navigator.geolocation.getCurrentPosition(
-                pos => fetchData(pos.coords.latitude, pos.coords.longitude),
+                async pos => {
+                    const lat = pos.coords.latitude;
+                    const lon = pos.coords.longitude;
+                    
+                    // 逆向地理編碼取得地名
+                    try {
+                        const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&zoom=10`);
+                        const geoData = await geoRes.json();
+                        const city = geoData.address.city || geoData.address.town || geoData.address.county || "GPS 位置";
+                        ui.locName.innerHTML = `<i class="fa-solid fa-location-dot text-blue-400"></i> ${city}`;
+                        ui.manualInput.value = city;
+                    } catch(e) {
+                        ui.locName.innerHTML = `<i class="fa-solid fa-location-dot text-blue-400"></i> GPS 位置`;
+                    }
+                    
+                    fetchWeatherData(lat, lon);
+                },
                 err => {
                     console.warn(err);
-                    useIpFallback("GPS 權限受阻，切換至 IP 網路定位");
+                    setWeatherState(false, "GPS 定位失敗，請改用手動搜尋");
                 },
-                { timeout: 4000 }
+                { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
             );
         }
 
-        async function useIpFallback(msg) {
-            ui.msg.textContent = msg;
+        // --- 3. 獲取天氣資料 ---
+        async function fetchWeatherData(lat, lon) {
             try {
-                const r = await fetch('https://ipapi.co/json/');
-                if(!r.ok) throw new Error();
-                const d = await r.json();
-                if(d.city) ui.locName.innerHTML = `<i class="fa-solid fa-location-dot text-blue-400"></i> ${d.city} <span class="text-xs text-slate-400">氣象顧問</span>`;
-                fetchData(d.latitude, d.longitude);
-            } catch(e) {
-                setState(false, "定位失敗，請檢查網路連線。");
-            }
-        }
+                // 計算3天前的日期用於地震查詢
+                const threeDaysAgo = new Date();
+                threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+                const quakeStartDate = threeDaysAgo.toISOString().split('T')[0];
 
-        async function fetchData(lat, lon) {
-            try {
-                const [wRes, aRes] = await Promise.all([
-                    fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation_probability,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code&timezone=auto`),
-                    fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=us_aqi`)
+                // 並行請求 API
+                // 1. 天氣 (含雪訊 forecast_days=3)
+                // 2. 空氣品質
+                // 3. 地震 (USGS)
+                const [wRes, aRes, qRes] = await Promise.all([
+                    fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation_probability,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code&daily=snowfall_sum&forecast_days=3&timezone=auto`),
+                    fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=us_aqi`),
+                    fetch(`https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&latitude=${lat}&longitude=${lon}&maxradiuskm=500&starttime=${quakeStartDate}&minmagnitude=3&orderby=time&limit=3`)
                 ]);
                 
+                if (!wRes.ok || !aRes.ok) throw new Error("API Error");
+
                 const wData = await wRes.json();
                 const aData = await aRes.json();
-                render(wData, aData);
+                
+                // 地震資料可能因區域沒地震而為空，需容錯
+                let qData = { features: [] };
+                if (qRes.ok) {
+                    qData = await qRes.json();
+                }
+                
+                renderWeather(wData, aData, qData);
                 playChime();
-                setState(false, "分析完成");
+                setWeatherState(false, "分析完成");
             } catch(e) {
                 console.error(e);
-                setState(false, "資料下載失敗，請稍後重試");
+                setWeatherState(false, "資料下載失敗，請稍後重試");
             }
         }
 
-        function render(w, a) {
+        // --- 工具函式：數字跑分動畫 ---
+        function animateNumber(element, start, end, duration = 1000) {
+            let startTimestamp = null;
+            const step = (timestamp) => {
+                if (!startTimestamp) startTimestamp = timestamp;
+                const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+                // 使用 easeOutExpo 效果
+                const easeProgress = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress);
+                
+                const currentVal = Math.floor(easeProgress * (end - start) + start);
+                element.textContent = currentVal + "°";
+                
+                if (progress < 1) {
+                    window.requestAnimationFrame(step);
+                }
+            };
+            window.requestAnimationFrame(step);
+        }
+
+        // --- 工具函式：翻譯地震位置 ---
+        function translatePlace(place) {
+            let t = place;
+            t = t.replace(/Taiwan/g, "台灣");
+            t = t.replace(/Japan/g, "日本");
+            t = t.replace(/Philippines/g, "菲律賓");
+            t = t.replace(/China/g, "中國");
+            t = t.replace(/South Korea/g, "南韓");
+            t = t.replace(/Indonesia/g, "印尼");
+            t = t.replace(/km/g, "公里");
+            t = t.replace(/ of /g, " 位於 ");
+            t = t.replace(/South/g, "南部");
+            t = t.replace(/North/g, "北部");
+            t = t.replace(/East/g, "東部");
+            t = t.replace(/West/g, "西部");
+            t = t.replace(/region/g, "地區");
+            return t;
+        }
+
+        // --- 4. 渲染畫面 ---
+        function renderWeather(w, a, q) {
             const cur = w.current;
             const aqiVal = a.current.us_aqi;
             
-            // Basic Info
-            ui.temp.textContent = Math.round(cur.temperature_2m) + "°";
-            ui.apparent.textContent = Math.round(cur.apparent_temperature);
+            // 基礎數值 (使用動畫)
+            const tempVal = Math.round(cur.temperature_2m);
+            const appVal = Math.round(cur.apparent_temperature);
+            
+            // 如果原本沒有值，從 0 開始，否則從舊值開始（這裡簡化從 0 開始）
+            animateNumber(ui.temp, 0, tempVal);
+            animateNumber(ui.apparent, 0, appVal);
+
             ui.rain.textContent = cur.precipitation_probability ?? 0;
             ui.wind.textContent = cur.wind_speed_10m;
             
-            // Weather Icon
+            // 天氣代碼圖示
             const code = cur.weather_code;
             const info = weatherCodes[code] || {d:"未知", i:"fa-question"};
             ui.desc.textContent = info.d;
-            ui.icon.className = `fa-solid ${info.i} text-5xl text-blue-100 drop-shadow-lg`;
+            ui.icon.className = `fa-solid ${info.i} text-5xl text-blue-100 drop-shadow-lg animate-float`;
 
-            // AQI
+            // 空氣品質 (AQI)
             let aqiStatus = "良好";
             if(aqiVal > 50) aqiStatus = "普通";
             if(aqiVal > 100) aqiStatus = "不佳";
             ui.aqi.textContent = `${aqiVal} (${aqiStatus})`;
             ui.aqi.className = `font-bold text-sm ${aqiVal > 100 ? 'text-red-400' : 'text-green-400'}`;
 
-            // Outfit Advice
+            // 生成穿搭建議 (更新：傳入是否下雪)
+            const dailySnow = w.daily.snowfall_sum;
+            const hasSnowForecast = dailySnow && dailySnow.some(s => s > 0);
             const advice = generateOutfitAdvice(
                 cur.temperature_2m,
                 cur.apparent_temperature,
                 cur.precipitation_probability,
                 cur.wind_speed_10m,
                 aqiVal,
-                code
+                code,
+                hasSnowForecast
             );
 
             ui.tags.innerHTML = advice.tags.map(t => 
@@ -358,9 +540,35 @@
                     <i class="fa-solid ${t.icon}"></i>${t.text}
                  </span>`
             ).join('');
-            ui.summary.textContent = advice.summary;
+            ui.summary.innerHTML = advice.summary; // Use innerHTML to allow line breaks
 
-            // Forecast Strip
+            // --- 並列顯示：雪訊預報 (3天) ---
+            const dailyTime = w.daily.time;
+            let snowDays = [];
+            
+            if (dailySnow) {
+                dailySnow.forEach((amount, idx) => {
+                    if (amount > 0) {
+                        snowDays.push({date: dailyTime[idx], amount: amount});
+                    }
+                });
+            }
+
+            ui.snowSection.style.display = 'flex'; // Force display for grid
+            if (snowDays.length > 0) {
+                ui.snowContent.innerHTML = snowDays.map(d => {
+                    const dateObj = new Date(d.date);
+                    const dateStr = `${dateObj.getMonth()+1}/${dateObj.getDate()}`;
+                    return `<div class="flex justify-between border-b border-white/20 py-2 last:border-0 items-center">
+                                <span class="font-bold text-white">${dateStr}</span>
+                                <span class="text-white bg-blue-500/40 px-2 py-0.5 rounded-md font-bold text-xs">${d.amount} cm</span>
+                            </div>`;
+                }).join('');
+            } else {
+                ui.snowContent.innerHTML = `<div class="h-full flex items-center justify-center text-center"><span class="text-cyan-100/70 text-[10px]">未來 3 天<br>無明顯降雪</span></div>`;
+            }
+
+            // --- 並列顯示：未來預報 (垂直列表模式) ---
             ui.forecast.innerHTML = '';
             const nowHour = new Date().getHours();
             let startIdx = 0;
@@ -368,6 +576,7 @@
                 if(new Date(t).getHours() === nowHour) startIdx = i;
             });
             
+            // 只顯示接下來 8 小時
             for(let i=startIdx+1; i<=startIdx+8; i++) {
                 if(!w.hourly.time[i]) break;
                 const t = new Date(w.hourly.time[i]);
@@ -375,19 +584,123 @@
                 const hInfo = weatherCodes[hCode] || {i:"fa-question"};
                 
                 ui.forecast.innerHTML += `
-                    <div class="flex-shrink-0 w-14 flex flex-col items-center bg-white/5 rounded-lg p-2">
-                        <span class="text-[10px] text-slate-400">${t.getHours()}:00</span>
-                        <i class="fa-solid ${hInfo.i} my-1 text-sm"></i>
-                        <span class="text-xs font-bold">${Math.round(w.hourly.temperature_2m[i])}°</span>
+                    <div class="flex items-center justify-between bg-white/5 rounded-lg p-2 border border-white/5 hover:bg-white/10 transition-colors">
+                        <span class="text-[10px] text-slate-400 font-mono w-10">${t.getHours()}:00</span>
+                        <i class="fa-solid ${hInfo.i} text-sm text-blue-100 w-6 text-center"></i>
+                        <span class="text-sm font-medium text-white num-font w-8 text-right">${Math.round(w.hourly.temperature_2m[i])}°</span>
                     </div>
                 `;
             }
 
+            // --- 地震資訊 (3天內, 半徑500km) ---
+            const quakes = q.features || [];
+            if (quakes.length > 0) {
+                ui.quakeContent.innerHTML = quakes.map(f => {
+                    const props = f.properties;
+                    const date = new Date(props.time);
+                    const dateStr = `${date.getMonth()+1}/${date.getDate()} ${date.getHours()}:${date.getMinutes().toString().padStart(2,'0')}`;
+                    
+                    // 取得座標與地名
+                    const coords = f.geometry.coordinates; // [lon, lat, depth]
+                    const place = translatePlace(props.place);
+                    
+                    // Google Maps Link
+                    const googleMapUrl = `https://www.google.com/maps/search/?api=1&query=${coords[1]},${coords[0]}`;
+                    
+                    const magColor = props.mag >= 5 ? "text-red-400" : (props.mag >= 4 ? "text-orange-400" : "text-yellow-300");
+                    
+                    return `
+                        <div class="flex flex-col border-b border-white/5 pb-2 last:border-0 last:pb-0">
+                            <div class="flex justify-between items-center mb-0.5">
+                                <span class="font-bold ${magColor}">M ${props.mag.toFixed(1)}</span>
+                                <span class="text-[10px] text-slate-400">${dateStr}</span>
+                            </div>
+                            <div class="text-xs text-slate-300 truncate" title="${place}">${place}</div>
+                            
+                            <a href="${googleMapUrl}" target="_blank" class="mt-1 flex items-center gap-1.5 text-[10px] text-indigo-300 hover:text-indigo-100 bg-indigo-500/10 hover:bg-indigo-500/30 px-2 py-1 rounded transition-all w-fit">
+                                <i class="fa-solid fa-map-pin"></i>
+                                <span>查看震央: ${coords[1].toFixed(2)}, ${coords[0].toFixed(2)}</span>
+                            </a>
+                        </div>
+                    `;
+                }).join('');
+            } else {
+                ui.quakeContent.innerHTML = `<div class="text-xs text-slate-500">周邊 500km 內近 3 天無規模 3 以上地震</div>`;
+            }
+
+            // 顯示結果區塊
             ui.result.style.display = 'flex';
-            void ui.result.offsetWidth;
+            void ui.result.offsetWidth; // Trigger reflow
             ui.result.classList.add('fade-in');
+        }
+        
+        // --- 5. 穿搭邏輯 (更新版) ---
+        function generateOutfitAdvice(temp, apparentTemp, rainProb, windSpeed, aqi, weatherCode, hasSnowForecast) {
+            let tags = [];
+            let summary = "";
+
+            // 1. 基礎氣溫建議
+            if (apparentTemp >= 30) {
+                tags.push({text: "短袖/無袖", icon: "fa-shirt", color: "text-orange-300"});
+                tags.push({text: "透氣材質", icon: "fa-wind", color: "text-blue-200"});
+                summary = "天氣非常炎熱，請穿著輕薄透氣的衣物，避免中暑。";
+            } else if (apparentTemp >= 25) {
+                tags.push({text: "短袖", icon: "fa-shirt", color: "text-yellow-200"});
+                tags.push({text: "薄防曬", icon: "fa-sun", color: "text-orange-200"});
+                summary = "天氣溫暖舒適，短袖搭配一件薄襯衫或薄外套即可。";
+            } else if (apparentTemp >= 20) {
+                tags.push({text: "薄長袖", icon: "fa-user-tag", color: "text-green-200"});
+                tags.push({text: "薄外套", icon: "fa-layer-group", color: "text-green-200"});
+                summary = "體感舒適微涼，建議穿著薄長袖，或短袖外搭一件薄夾克。";
+            } else if (apparentTemp >= 15) {
+                tags.push({text: "夾克/帽T", icon: "fa-vest", color: "text-blue-200"});
+                tags.push({text: "長褲", icon: "fa-socks", color: "text-blue-200"});
+                summary = "稍有涼意，建議穿著大學T、帽T或夾克，避免著涼。";
+            } else {
+                tags.push({text: "厚外套/羽絨", icon: "fa-snowflake", color: "text-blue-100"});
+                tags.push({text: "圍巾", icon: "fa-scarf", color: "text-purple-200"});
+                summary = "天氣寒冷，請務必做好保暖，建議穿著保暖外套與圍巾。";
+            }
+
+            // 2. 特殊天氣標籤與詳細建議
+            if (rainProb >= 40 || (weatherCode >= 50 && weatherCode <= 69) || (weatherCode >= 80 && weatherCode <= 99)) {
+                tags.push({text: "務必帶傘", icon: "fa-umbrella", color: "text-blue-400", important: true});
+                summary += "<br>☔ 降雨機率高，出門請記得攜帶雨具，鞋子建議選擇防潑水材質。";
+            }
+
+            // 3. 下雪詳細建議
+            if (hasSnowForecast || (weatherCode >= 70 && weatherCode <= 79) || temp < 2) {
+                tags.push({text: "防滑鞋", icon: "fa-shoe-prints", color: "text-cyan-300", important: true});
+                tags.push({text: "防水外套", icon: "fa-droplet", color: "text-cyan-200"});
+                tags.push({text: "毛帽手套", icon: "fa-mitten", color: "text-pink-200"});
+                
+                summary += "<br>❄️ <strong class='text-cyan-200'>下雪/低溫注意事項：</strong>";
+                summary += "<ul class='list-disc list-inside mt-1 space-y-1 text-slate-300'>";
+                summary += "<li><strong>洋蔥式穿搭：</strong>內層排汗、中層保暖、外層防風防水。</li>";
+                summary += "<li><strong>防滑：</strong>路面可能結冰溼滑，請穿著深紋路的防滑靴。</li>";
+                summary += "<li><strong>保暖末梢：</strong>戴上毛帽與防水手套，保護頭部與雙手。</li>";
+                summary += "<li><strong>防水：</strong>雪融化會弄濕衣物，外層衣物務必防水。</li>";
+                summary += "</ul>";
+            }
+
+            if (windSpeed >= 20) {
+                tags.push({text: "防風外套", icon: "fa-wind", color: "text-gray-300"});
+                if(!summary.includes("下雪")) {
+                     summary += "<br>💨 風勢較大，建議穿著防風外套以避免體感溫度過低。";
+                }
+            }
+
+            if (aqi > 100) {
+                tags.push({text: "戴口罩", icon: "fa-mask-face", color: "text-red-400", important: true});
+                summary += "<br>😷 空氣品質不佳，敏感族群請配戴口罩。";
+            }
+
+            if (weatherCode <= 1 && apparentTemp > 20) {
+                tags.push({text: "墨鏡/帽子", icon: "fa-glasses", color: "text-yellow-400"});
+            }
+
+            return { tags, summary };
         }
     </script>
 </body>
 </html>
-
