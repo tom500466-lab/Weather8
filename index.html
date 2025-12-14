@@ -159,11 +159,11 @@
                 <span>搜尋天氣</span>
             </button>
             
-            <!-- GPS 定位按鈕 -->
+            <!-- GPS 定位按鈕 (一鍵定位) -->
             <button onclick="startWeatherProcess()" 
-                class="mt-1 text-xs text-blue-300 hover:text-white flex items-center justify-center gap-2 py-2 hover:bg-white/10 rounded-lg transition-colors border border-dashed border-blue-300/30 scale-click">
-                <i class="fa-solid fa-location-crosshairs"></i>
-                定位目前位置 (GPS)
+                class="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-bold py-3.5 rounded-xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 border border-white/10 scale-click">
+                <i class="fa-solid fa-location-crosshairs animate-pulse"></i>
+                <span>一鍵自動定位</span>
             </button>
 
             <!-- 狀態訊息 -->
@@ -382,38 +382,62 @@
             }
         }
 
-        // GPS 定位
+        // GPS 定位 (校正版)
         async function startWeatherProcess() {
-            setWeatherState(true, "正在使用 GPS 定位...");
+            setWeatherState(true, "正在取得 GPS 權限與位置...");
             
             if (!navigator.geolocation) {
-                ui.msg.textContent = "您的瀏覽器不支援 GPS 定位";
+                setWeatherState(false, "您的瀏覽器不支援 GPS 定位功能");
                 return;
             }
+
+            const options = {
+                enableHighAccuracy: false, // 改為 false 以提高成功率 (氣象不需要極高精準度)
+                timeout: 15000,           // 延長超時時間至 15 秒
+                maximumAge: 300000        // 允許使用 5 分鐘內的快取位置
+            };
 
             navigator.geolocation.getCurrentPosition(
                 async pos => {
                     const lat = pos.coords.latitude;
                     const lon = pos.coords.longitude;
                     
+                    setWeatherState(true, "定位成功！正在分析氣象資料...");
+
                     // 逆向地理編碼取得地名
                     try {
                         const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&zoom=10`);
+                        if (!geoRes.ok) throw new Error("Geo API error");
                         const geoData = await geoRes.json();
-                        const city = geoData.address.city || geoData.address.town || geoData.address.county || "GPS 位置";
+                        const city = geoData.address.city || geoData.address.town || geoData.address.county || geoData.address.village || "GPS 位置";
                         ui.locName.innerHTML = `<i class="fa-solid fa-location-dot text-blue-400"></i> ${city}`;
                         ui.manualInput.value = city;
                     } catch(e) {
-                        ui.locName.innerHTML = `<i class="fa-solid fa-location-dot text-blue-400"></i> GPS 位置`;
+                        console.warn("Reverse geocoding failed", e);
+                        ui.locName.innerHTML = `<i class="fa-solid fa-location-dot text-blue-400"></i> 您的位置`;
                     }
                     
                     fetchWeatherData(lat, lon);
                 },
                 err => {
                     console.warn(err);
-                    setWeatherState(false, "GPS 定位失敗，請改用手動搜尋");
+                    let errorMsg = "定位失敗";
+                    switch(err.code) {
+                        case err.PERMISSION_DENIED:
+                            errorMsg = "您拒絕了定位權限，請至瀏覽器設定開啟";
+                            break;
+                        case err.POSITION_UNAVAILABLE:
+                            errorMsg = "無法偵測目前位置 (訊號微弱)";
+                            break;
+                        case err.TIMEOUT:
+                            errorMsg = "定位請求逾時，請再試一次";
+                            break;
+                        default:
+                            errorMsg = "定位發生未預期錯誤";
+                    }
+                    setWeatherState(false, errorMsg);
                 },
-                { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+                options
             );
         }
 
