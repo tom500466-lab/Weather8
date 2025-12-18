@@ -217,11 +217,12 @@
                     <div class="text-xs text-slate-400">風速</div>
                     <div class="font-bold text-sm num-font"><span id="windSpeed">--</span> <span class="text-[10px]">km/h</span></div>
                 </div>
-                <!-- AQI -->
+                <!-- AQI (更新：顯示 PM2.5) -->
                 <div class="bg-white/5 rounded-xl p-2 py-3 flex flex-col items-center justify-center border border-white/5">
-                    <i class="fa-solid fa-lungs text-green-400 mb-1 text-sm"></i>
-                    <div class="text-xs text-slate-400">空氣</div>
+                    <i class="fa-solid fa-lungs text-green-400 mb-1 text-sm" id="aqiIcon"></i>
+                    <div class="text-xs text-slate-400">空氣品質</div>
                     <div class="font-bold text-sm num-font" id="aqiText">--</div>
+                    <div class="text-[10px] text-slate-500 mt-1 num-font" title="PM2.5 濃度">PM2.5: <span id="pm25Text">--</span></div>
                 </div>
             </div>
             
@@ -285,6 +286,8 @@
             rain: document.getElementById('rainProb'),
             wind: document.getElementById('windSpeed'),
             aqi: document.getElementById('aqiText'),
+            aqiIcon: document.getElementById('aqiIcon'),
+            pm25: document.getElementById('pm25Text'), // 新增 PM2.5 元件
             tags: document.getElementById('outfitTags'),
             summary: document.getElementById('outfitSummary'),
             forecast: document.getElementById('forecastContainer'),
@@ -444,38 +447,38 @@
         // --- 3. 獲取天氣資料 ---
         async function fetchWeatherData(lat, lon) {
             try {
-                // 計算3天前的日期用於地震查詢
                 const threeDaysAgo = new Date();
                 threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
                 const quakeStartDate = threeDaysAgo.toISOString().split('T')[0];
 
-                // 並行請求 API
-                // 1. 天氣 (含雪訊 forecast_days=3)
-                // 2. 空氣品質
-                // 3. 地震 (USGS)
-                const [wRes, aRes, qRes] = await Promise.all([
-                    fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation_probability,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code&daily=snowfall_sum&forecast_days=3&timezone=auto`),
-                    fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=us_aqi`),
-                    fetch(`https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&latitude=${lat}&longitude=${lon}&maxradiuskm=500&starttime=${quakeStartDate}&minmagnitude=3&orderby=time&limit=3`)
-                ]);
+                // 1. 天氣
+                const wUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation_probability,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code&daily=snowfall_sum&forecast_days=3&timezone=auto`;
                 
-                if (!wRes.ok || !aRes.ok) throw new Error("API Error");
+                // 2. 空氣品質 (新增 PM2.5 參數)
+                const aUrl = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=us_aqi,pm2_5`;
+                
+                // 3. 地震
+                const qUrl = `https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&latitude=${lat}&longitude=${lon}&maxradiuskm=500&starttime=${quakeStartDate}&minmagnitude=3&orderby=time&limit=3`;
 
-                const wData = await wRes.json();
-                const aData = await aRes.json();
+                // 安全請求輔助函式
+                const fetchSafe = (url) => fetch(url).then(res => res.ok ? res.json() : null).catch(() => null);
+
+                // 並行執行請求
+                const wPromise = fetch(wUrl).then(res => { if(!res.ok) throw new Error(); return res.json(); });
+                const aPromise = fetchSafe(aUrl);
+                const qPromise = fetchSafe(qUrl);
+
+                const [wData, aData, qData] = await Promise.all([wPromise, aPromise, qPromise]);
                 
-                // 地震資料可能因區域沒地震而為空，需容錯
-                let qData = { features: [] };
-                if (qRes.ok) {
-                    qData = await qRes.json();
-                }
+                const finalAData = aData || { current: { us_aqi: null, pm2_5: null } };
+                const finalQData = qData || { features: [] };
                 
-                renderWeather(wData, aData, qData);
+                renderWeather(wData, finalAData, finalQData);
                 playChime();
                 setWeatherState(false, "分析完成");
             } catch(e) {
                 console.error(e);
-                setWeatherState(false, "資料下載失敗，請稍後重試");
+                setWeatherState(false, "無法取得天氣資料，該地區可能無服務");
             }
         }
 
@@ -521,12 +524,12 @@
         function renderWeather(w, a, q) {
             const cur = w.current;
             const aqiVal = a.current.us_aqi;
+            const pm25Val = a.current.pm2_5;
             
             // 基礎數值 (使用動畫)
             const tempVal = Math.round(cur.temperature_2m);
             const appVal = Math.round(cur.apparent_temperature);
             
-            // 如果原本沒有值，從 0 開始，否則從舊值開始（這裡簡化從 0 開始）
             animateNumber(ui.temp, 0, tempVal);
             animateNumber(ui.apparent, 0, appVal);
 
@@ -539,14 +542,56 @@
             ui.desc.textContent = info.d;
             ui.icon.className = `fa-solid ${info.i} text-5xl text-blue-100 drop-shadow-lg animate-float`;
 
-            // 空氣品質 (AQI)
-            let aqiStatus = "良好";
-            if(aqiVal > 50) aqiStatus = "普通";
-            if(aqiVal > 100) aqiStatus = "不佳";
-            ui.aqi.textContent = `${aqiVal} (${aqiStatus})`;
-            ui.aqi.className = `font-bold text-sm ${aqiVal > 100 ? 'text-red-400' : 'text-green-400'}`;
+            // 空氣品質 (AQI) - 校正：對照台灣環境部標準
+            // 台灣 AQI 標準：
+            // 0-50 良好 (綠)
+            // 51-100 普通 (黃)
+            // 101-150 對敏感族群不健康 (橘)
+            // 151-200 對所有族群不健康 (紅)
+            // 201-300 非常不健康 (紫)
+            // 301+ 危害 (褐)
+            
+            let aqiStatus = "無資料";
+            let aqiClass = "text-slate-400";
+            let iconClass = "text-slate-400"; // Icon color
+            
+            if (typeof aqiVal === 'number') {
+                if (aqiVal <= 50) {
+                    aqiStatus = "良好";
+                    aqiClass = "text-emerald-400";
+                    iconClass = "text-emerald-400";
+                } else if (aqiVal <= 100) {
+                    aqiStatus = "普通";
+                    aqiClass = "text-yellow-400";
+                    iconClass = "text-yellow-400";
+                } else if (aqiVal <= 150) {
+                    aqiStatus = "對敏感族群不健康";
+                    aqiClass = "text-orange-400";
+                    iconClass = "text-orange-400";
+                } else if (aqiVal <= 200) {
+                    aqiStatus = "不健康";
+                    aqiClass = "text-red-500";
+                    iconClass = "text-red-500";
+                } else if (aqiVal <= 300) {
+                    aqiStatus = "非常不健康";
+                    aqiClass = "text-purple-500";
+                    iconClass = "text-purple-500";
+                } else {
+                    aqiStatus = "危害";
+                    aqiClass = "text-rose-900";
+                    iconClass = "text-rose-900";
+                }
+                ui.aqi.textContent = `${aqiVal} (${aqiStatus})`;
+            } else {
+                ui.aqi.textContent = "--";
+            }
+            ui.aqi.className = `font-bold text-sm ${aqiClass} truncate`;
+            ui.aqiIcon.className = `fa-solid fa-lungs ${iconClass} mb-1 text-sm`;
 
-            // 生成穿搭建議 (更新：傳入是否下雪)
+            // 顯示 PM2.5
+            ui.pm25.textContent = typeof pm25Val === 'number' ? pm25Val : "--";
+
+            // 生成穿搭建議
             const dailySnow = w.daily.snowfall_sum;
             const hasSnowForecast = dailySnow && dailySnow.some(s => s > 0);
             const advice = generateOutfitAdvice(
@@ -554,7 +599,7 @@
                 cur.apparent_temperature,
                 cur.precipitation_probability,
                 cur.wind_speed_10m,
-                aqiVal,
+                aqiVal || 0, 
                 code,
                 hasSnowForecast
             );
@@ -564,7 +609,7 @@
                     <i class="fa-solid ${t.icon}"></i>${t.text}
                  </span>`
             ).join('');
-            ui.summary.innerHTML = advice.summary; // Use innerHTML to allow line breaks
+            ui.summary.innerHTML = advice.summary; 
 
             // --- 並列顯示：雪訊預報 (3天) ---
             const dailyTime = w.daily.time;
@@ -578,7 +623,7 @@
                 });
             }
 
-            ui.snowSection.style.display = 'flex'; // Force display for grid
+            ui.snowSection.style.display = 'flex'; 
             if (snowDays.length > 0) {
                 ui.snowContent.innerHTML = snowDays.map(d => {
                     const dateObj = new Date(d.date);
@@ -600,7 +645,6 @@
                 if(new Date(t).getHours() === nowHour) startIdx = i;
             });
             
-            // 只顯示接下來 8 小時
             for(let i=startIdx+1; i<=startIdx+8; i++) {
                 if(!w.hourly.time[i]) break;
                 const t = new Date(w.hourly.time[i]);
@@ -624,11 +668,9 @@
                     const date = new Date(props.time);
                     const dateStr = `${date.getMonth()+1}/${date.getDate()} ${date.getHours()}:${date.getMinutes().toString().padStart(2,'0')}`;
                     
-                    // 取得座標與地名
-                    const coords = f.geometry.coordinates; // [lon, lat, depth]
+                    const coords = f.geometry.coordinates; 
                     const place = translatePlace(props.place);
                     
-                    // Google Maps Link
                     const googleMapUrl = `https://www.google.com/maps/search/?api=1&query=${coords[1]},${coords[0]}`;
                     
                     const magColor = props.mag >= 5 ? "text-red-400" : (props.mag >= 4 ? "text-orange-400" : "text-yellow-300");
@@ -652,9 +694,8 @@
                 ui.quakeContent.innerHTML = `<div class="text-xs text-slate-500">周邊 500km 內近 3 天無規模 3 以上地震</div>`;
             }
 
-            // 顯示結果區塊
             ui.result.style.display = 'flex';
-            void ui.result.offsetWidth; // Trigger reflow
+            void ui.result.offsetWidth; 
             ui.result.classList.add('fade-in');
         }
         
@@ -663,7 +704,6 @@
             let tags = [];
             let summary = "";
 
-            // 1. 基礎氣溫建議
             if (apparentTemp >= 30) {
                 tags.push({text: "短袖/無袖", icon: "fa-shirt", color: "text-orange-300"});
                 tags.push({text: "透氣材質", icon: "fa-wind", color: "text-blue-200"});
@@ -686,13 +726,11 @@
                 summary = "天氣寒冷，請務必做好保暖，建議穿著保暖外套與圍巾。";
             }
 
-            // 2. 特殊天氣標籤與詳細建議
             if (rainProb >= 40 || (weatherCode >= 50 && weatherCode <= 69) || (weatherCode >= 80 && weatherCode <= 99)) {
                 tags.push({text: "務必帶傘", icon: "fa-umbrella", color: "text-blue-400", important: true});
                 summary += "<br>☔ 降雨機率高，出門請記得攜帶雨具，鞋子建議選擇防潑水材質。";
             }
 
-            // 3. 下雪詳細建議
             if (hasSnowForecast || (weatherCode >= 70 && weatherCode <= 79) || temp < 2) {
                 tags.push({text: "防滑鞋", icon: "fa-shoe-prints", color: "text-cyan-300", important: true});
                 tags.push({text: "防水外套", icon: "fa-droplet", color: "text-cyan-200"});
